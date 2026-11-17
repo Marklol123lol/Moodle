@@ -1,0 +1,6 @@
+{
+  "name": "Moodle AI",
+  "description": "AI-помощник для Moodle (1skola.lv): управление курсами, анализ заданий и материалов, подготовка решений с Gemini и контроль отправки.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

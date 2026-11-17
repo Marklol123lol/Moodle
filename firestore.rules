@@ -1,0 +1,278 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUserWorkspace(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+             data.moodleUrl is string && data.moodleUrl.size() >= 1 && data.moodleUrl.size() <= 256 &&
+             data.connectionMode in ['DISCONNECTED', 'BROWSER_SESSION', 'WEB_SERVICE_API'] &&
+             data.moodleDisplayName is string && data.moodleDisplayName.size() <= 128 &&
+             data.preferredModel in ['gemini-3.8-flash', 'gemini-4-argon', 'gemini-3.5-flash-lite'] &&
+             data.answerLanguage is string && data.answerLanguage.size() >= 1 && data.answerLanguage.size() <= 40 &&
+             data.courseCount is int && data.courseCount >= 0 && data.courseCount <= 500 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidSyncedCourse(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+             data.moodleCourseId is string && data.moodleCourseId.size() >= 1 && data.moodleCourseId.size() <= 64 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 300 &&
+             data.shortName is string && data.shortName.size() <= 120 &&
+             data.category is string && data.category.size() <= 150 &&
+             data.courseUrl is string && data.courseUrl.size() >= 1 && data.courseUrl.size() <= 500 &&
+             data.progressPercent is int && data.progressPercent >= 0 && data.progressPercent <= 100 &&
+             data.assignmentCount is int && data.assignmentCount >= 0 && data.assignmentCount <= 500 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidAssignmentRecord(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+             data.moodleAssignId is string && data.moodleAssignId.size() >= 1 && data.moodleAssignId.size() <= 64 &&
+             data.moodleCourseId is string && data.moodleCourseId.size() >= 1 && data.moodleCourseId.size() <= 64 &&
+             data.courseTitle is string && data.courseTitle.size() >= 1 && data.courseTitle.size() <= 300 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 400 &&
+             data.description is string && data.description.size() <= 20000 &&
+             data.dueDateText is string && data.dueDateText.size() <= 120 &&
+             data.dueEpochMillis is int && data.dueEpochMillis >= 0 &&
+             data.status in ['PENDING', 'DRAFT_READY', 'CONFIRMED', 'SUBMITTED', 'OVERDUE'] &&
+             data.subjectCategory is string && data.subjectCategory.size() <= 100 &&
+             data.assignmentUrl is string && data.assignmentUrl.size() >= 1 && data.assignmentUrl.size() <= 500 &&
+             data.attachmentsSummary is string && data.attachmentsSummary.size() <= 4000 &&
+             data.aiSolution is string && data.aiSolution.size() <= 30000 &&
+             data.aiExplanation is string && data.aiExplanation.size() <= 15000 &&
+             data.userEditedAnswer is string && data.userEditedAnswer.size() <= 30000 &&
+             data.recommendedFormat is string && data.recommendedFormat.size() <= 500 &&
+             data.verificationNotes is string && data.verificationNotes.size() <= 5000 &&
+             data.submittedByUser is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidAgentLogRecord(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+             data.actionType is string && data.actionType.size() >= 1 && data.actionType.size() <= 100 &&
+             data.assignmentId is string && data.assignmentId.size() <= 128 &&
+             data.assignmentTitle is string && data.assignmentTitle.size() <= 400 &&
+             data.courseTitle is string && data.courseTitle.size() <= 300 &&
+             data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 4000 &&
+             data.status in ['RUNNING', 'AWAITING_CONFIRMATION', 'COMPLETED', 'SUBMITTED', 'FAILED'] &&
+             data.steps is list && data.steps.size() <= 20 &&
+             (data.steps.size() == 0 || data.steps[0] is string) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidChatMessageRecord(data, userId) {
+      return data.userId is string && data.userId == userId && data.userId.size() <= 128 &&
+             data.role in ['user', 'assistant'] &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 30000 &&
+             data.relatedCourseTitle is string && data.relatedCourseTitle.size() <= 300 &&
+             data.relatedAssignmentTitle is string && data.relatedAssignmentTitle.size() <= 400 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'moodleUrl', 'connectionMode', 'moodleDisplayName',
+                         'preferredModel', 'answerLanguage', 'courseCount', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'moodleUrl', 'connectionMode', 'moodleDisplayName',
+                         'preferredModel', 'answerLanguage', 'courseCount', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserWorkspace(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidUserWorkspace(incoming(), userId) &&
+                       (
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'moodleUrl', 'connectionMode', 'moodleDisplayName', 'courseCount', 'updatedAt'
+                         ]) ||
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'preferredModel', 'answerLanguage', 'updatedAt'
+                         ])
+                       );
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /courses/{courseId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(courseId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(courseId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'moodleCourseId', 'title', 'shortName', 'category',
+                           'courseUrl', 'progressPercent', 'assignmentCount', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'moodleCourseId', 'title', 'shortName', 'category',
+                           'courseUrl', 'progressPercent', 'assignmentCount', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidSyncedCourse(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(courseId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().moodleCourseId == existing().moodleCourseId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidSyncedCourse(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'shortName', 'category', 'courseUrl',
+                           'progressPercent', 'assignmentCount', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(courseId);
+      }
+
+      match /assignments/{assignmentId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(assignmentId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(assignmentId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'moodleAssignId', 'moodleCourseId', 'courseTitle', 'title',
+                           'description', 'dueDateText', 'dueEpochMillis', 'status', 'subjectCategory',
+                           'assignmentUrl', 'attachmentsSummary', 'aiSolution', 'aiExplanation',
+                           'userEditedAnswer', 'recommendedFormat', 'verificationNotes',
+                           'submittedByUser', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'moodleAssignId', 'moodleCourseId', 'courseTitle', 'title',
+                           'description', 'dueDateText', 'dueEpochMillis', 'status', 'subjectCategory',
+                           'assignmentUrl', 'attachmentsSummary', 'aiSolution', 'aiExplanation',
+                           'userEditedAnswer', 'recommendedFormat', 'verificationNotes',
+                           'submittedByUser', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidAssignmentRecord(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(assignmentId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().moodleAssignId == existing().moodleAssignId &&
+                         incoming().moodleCourseId == existing().moodleCourseId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidAssignmentRecord(incoming(), userId) &&
+                         (
+                           // Sync metadata from Moodle
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'courseTitle', 'title', 'description', 'dueDateText',
+                             'dueEpochMillis', 'assignmentUrl', 'attachmentsSummary', 'status', 'updatedAt'
+                           ]) ||
+                           // Save AI solution & explanation
+                           (
+                             existing().status != 'SUBMITTED' &&
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'subjectCategory', 'aiSolution', 'aiExplanation',
+                               'userEditedAnswer', 'recommendedFormat', 'verificationNotes',
+                               'status', 'updatedAt'
+                             ])
+                           ) ||
+                           // Edit user answer draft
+                           (
+                             existing().status != 'SUBMITTED' &&
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'userEditedAnswer', 'status', 'updatedAt'
+                             ])
+                           ) ||
+                           // Explicit user confirmation & submission
+                           (
+                             existing().status != 'SUBMITTED' &&
+                             incoming().submittedByUser == true &&
+                             incoming().status in ['CONFIRMED', 'SUBMITTED'] &&
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'userEditedAnswer', 'status', 'submittedByUser', 'updatedAt'
+                             ])
+                           )
+                         );
+
+        allow delete: if isOwner(userId) && isValidId(assignmentId);
+      }
+
+      match /agentLogs/{logId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(logId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(logId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'actionType', 'assignmentId', 'assignmentTitle',
+                           'courseTitle', 'summary', 'status', 'steps', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'actionType', 'assignmentId', 'assignmentTitle',
+                           'courseTitle', 'summary', 'status', 'steps', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidAgentLogRecord(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(logId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         existing().status in ['RUNNING', 'AWAITING_CONFIRMATION'] &&
+                         isValidAgentLogRecord(incoming(), userId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'assignmentId', 'assignmentTitle', 'courseTitle',
+                           'summary', 'status', 'steps', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(logId);
+      }
+
+      match /chatMessages/{messageId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(messageId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(messageId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'role', 'text', 'relatedCourseTitle',
+                           'relatedAssignmentTitle', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'role', 'text', 'relatedCourseTitle',
+                           'relatedAssignmentTitle', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidChatMessageRecord(incoming(), userId);
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(messageId);
+      }
+    }
+  }
+}

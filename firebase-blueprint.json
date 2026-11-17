@@ -1,0 +1,195 @@
+{
+  "entities": {
+    "UserWorkspace": {
+      "title": "UserWorkspace",
+      "description": "User workspace preferences and Moodle connection metadata (never stores passwords or raw tokens).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated Firebase UID" },
+        "moodleUrl": { "type": "string", "description": "Moodle base URL" },
+        "connectionMode": {
+          "type": "string",
+          "enum": ["DISCONNECTED", "BROWSER_SESSION", "WEB_SERVICE_API"]
+        },
+        "moodleDisplayName": { "type": "string" },
+        "preferredModel": {
+          "type": "string",
+          "enum": ["gemini-3.8-flash", "gemini-4-argon", "gemini-3.5-flash-lite"]
+        },
+        "answerLanguage": { "type": "string" },
+        "courseCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "moodleUrl",
+        "connectionMode",
+        "moodleDisplayName",
+        "preferredModel",
+        "answerLanguage",
+        "courseCount",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SyncedCourse": {
+      "title": "SyncedCourse",
+      "description": "Real Moodle course synced for the user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "moodleCourseId": { "type": "string" },
+        "title": { "type": "string" },
+        "shortName": { "type": "string" },
+        "category": { "type": "string" },
+        "courseUrl": { "type": "string" },
+        "progressPercent": { "type": "integer" },
+        "assignmentCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "moodleCourseId",
+        "title",
+        "shortName",
+        "category",
+        "courseUrl",
+        "progressPercent",
+        "assignmentCount",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AssignmentRecord": {
+      "title": "AssignmentRecord",
+      "description": "Synced Moodle assignment with AI draft solution, explanation, and user confirmation status.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "moodleAssignId": { "type": "string" },
+        "moodleCourseId": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "dueDateText": { "type": "string" },
+        "dueEpochMillis": { "type": "integer" },
+        "status": {
+          "type": "string",
+          "enum": ["PENDING", "DRAFT_READY", "CONFIRMED", "SUBMITTED", "OVERDUE"]
+        },
+        "subjectCategory": { "type": "string" },
+        "assignmentUrl": { "type": "string" },
+        "attachmentsSummary": { "type": "string" },
+        "aiSolution": { "type": "string" },
+        "aiExplanation": { "type": "string" },
+        "userEditedAnswer": { "type": "string" },
+        "recommendedFormat": { "type": "string" },
+        "verificationNotes": { "type": "string" },
+        "submittedByUser": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "moodleAssignId",
+        "moodleCourseId",
+        "courseTitle",
+        "title",
+        "description",
+        "dueDateText",
+        "dueEpochMillis",
+        "status",
+        "subjectCategory",
+        "assignmentUrl",
+        "attachmentsSummary",
+        "aiSolution",
+        "aiExplanation",
+        "userEditedAnswer",
+        "recommendedFormat",
+        "verificationNotes",
+        "submittedByUser",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AgentLogRecord": {
+      "title": "AgentLogRecord",
+      "description": "Audit log of AI agent workflow runs and steps.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "actionType": { "type": "string" },
+        "assignmentId": { "type": "string" },
+        "assignmentTitle": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "summary": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["RUNNING", "AWAITING_CONFIRMATION", "COMPLETED", "SUBMITTED", "FAILED"]
+        },
+        "steps": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "actionType",
+        "assignmentId",
+        "assignmentTitle",
+        "courseTitle",
+        "summary",
+        "status",
+        "steps",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ChatMessageRecord": {
+      "title": "ChatMessageRecord",
+      "description": "Persisted AI Assistant chat message.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "text": { "type": "string" },
+        "relatedCourseTitle": { "type": "string" },
+        "relatedAssignmentTitle": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "role",
+        "text",
+        "relatedCourseTitle",
+        "relatedAssignmentTitle",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserWorkspace" },
+      "description": "User workspace settings and Moodle connection summary."
+    },
+    "/users/{userId}/courses/{courseId}": {
+      "schema": { "$ref": "#/entities/SyncedCourse" },
+      "description": "Synced Moodle courses for the user."
+    },
+    "/users/{userId}/assignments/{assignmentId}": {
+      "schema": { "$ref": "#/entities/AssignmentRecord" },
+      "description": "Synced Moodle assignments, AI drafts, and submission confirmations."
+    },
+    "/users/{userId}/agentLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AgentLogRecord" },
+      "description": "AI agent execution action logs and work history."
+    },
+    "/users/{userId}/chatMessages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessageRecord" },
+      "description": "AI Assistant conversation messages."
+    }
+  }
+}
